@@ -7,6 +7,6 @@ There is no limit to the number of clicks except for 1ms sleep after doing every
 
 Some of the games I tried out:
 
-Zombidle - on Kongregate, doesn't need button up
-Cookie Clicker - does need button up
-Clicker Heroes - does need button up
+* Zombidle - on Kongregate, doesn't need button up
+* Cookie Clicker - does need button up
+* Clicker Heroes - does need button up
