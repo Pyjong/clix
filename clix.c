@@ -16,6 +16,7 @@ typedef struct _ClixCtx
         UINT   ThreadId;
         HWND   hWnd;
         POINT  p;
+        POINT  ClientP;
     }Target;
 
     struct
@@ -84,6 +85,9 @@ SetTargetClickPt()
     //MessageBox(0,"GetCursorPos failed","Error",0);
     
     LeMegaCtx.Target.hWnd = WindowFromPoint(LeMegaCtx.Target.p);
+    LeMegaCtx.Target.ClientP.x = LeMegaCtx.Target.p.x;
+    LeMegaCtx.Target.ClientP.y = LeMegaCtx.Target.p.y;
+    ScreenToClient(LeMegaCtx.Target.hWnd, &LeMegaCtx.Target.ClientP);
     
     return ERROR_SUCCESS;
 }
@@ -95,7 +99,7 @@ HRESULT
 WINAPI
 Clicker(PVOID Param)
 {
-    POINT* p = &LeMegaCtx.Target.p;
+    POINT* p = &LeMegaCtx.Target.ClientP;
     
     while (!LeMegaCtx.bExit)
     {
