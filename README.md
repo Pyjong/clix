@@ -10,3 +10,7 @@ Some of the games I tried out:
 * Zombidle - on Kongregate, doesn't need button up
 * Cookie Clicker - does need button up
 * Clicker Heroes - does need button up
+* AdVenture captialist - Unity framework -> Zero f&@{s given, next!
+
+
+Oh and btw.. the window selecting thing, it's set by losing focus on the clix window so.. don't alt-tab... I may revisit this later.
