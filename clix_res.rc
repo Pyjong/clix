@@ -1,11 +1,13 @@
 // Microsoft Visual C++ generated resource script.
 //
-#include "clix.h"
+#include "resources.h"
 #include <windows.h>
 /////////////////////////////////////////////////////////////////////////////
 // Czech (Czech Republic) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CSY)
+LANGUAGE LANG_CZECH, SUBLANG_DEFAULT
+#pragma code_page(1250)
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -16,15 +18,13 @@
 // remains consistent on all systems.
 IDI_CLIX_ICON           ICON                    "clix.ico"
 
-
 /////////////////////////////////////////////////////////////////////////////
 //
 // Dialog
 //
 
 IDD_CLIX DIALOGEX 64, 64, 165, 42
-STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
-EXSTYLE WS_EX_TOPMOST
+STYLE DS_SETFONT | WS_MINIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Clix"
 FONT 8, "Small Fonts", 400, 0, 0xEE
 BEGIN
@@ -33,17 +33,26 @@ BEGIN
     PUSHBUTTON      "Start/Stop",IDC_START_STOP_CLICKING,93,23,65,12
 END
 
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Menu
-//
-
-IDM_MENU MENU
-{
-    MENUITEM "Send WM_LBUTTONDOWN", IDC_LMB_DOWN, CHECKED
-    MENUITEM "Send WM_LBUTTONUP", IDC_LMB_UP
-}
+IDD_CLIX_SETTINGS DIALOGEX 0, 0, 133, 162
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Settings"
+FONT 8, "Small Fonts", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,7,142,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,75,142,50,14
+    GROUPBOX        "Hotkeys",IDC_GROUP_HK,7,7,119,62
+    GROUPBOX        "Click settings",IDC_GROUP_CLICK,7,75,119,63
+    LTEXT           "Start/Stop:",IDC_TXT_SS,9,24,37,8
+    LTEXT           "Set window:",IDC_TXT_SET_TGT,9,44,40,8
+    CONTROL         "Set",IDC_BUTTON_SET_HK_SS,"KeyButton",WS_TABSTOP,53,21,35,14
+    PUSHBUTTON      "Unset",IDC_BUTTON_UNSET_HK_SS,91,20,26,14
+    CONTROL         "Set",IDC_BUTTON_SET_HK_TARGET,"KeyButton",WS_TABSTOP,53,41,35,14
+    PUSHBUTTON      "Unset",IDC_BUTTON_UNSET_HK_TARGET,91,41,26,14
+    CONTROL         "Mouse down",IDC_CHECK_LMBDOWN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,93,56,10
+    CONTROL         "Mouse up",IDC_CHECK_LMBUP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,73,93,47,10
+    LTEXT           "Max clicks per sec:",IDC_STATIC,9,118,60,8
+    EDITTEXT        IDC_EDIT_MAX_CLICKS,73,115,33,14,ES_AUTOHSCROLL | ES_NUMBER | WS_GROUP
+END
 
 
 #ifdef APSTUDIO_INVOKED
@@ -79,22 +88,12 @@ END
 #ifdef APSTUDIO_INVOKED
 GUIDELINES DESIGNINFO
 BEGIN
-    IDD_CLIX, DIALOG
+    IDD_CLIX_SETTINGS, DIALOG
     BEGIN
+        RIGHTMARGIN, 126
     END
 END
 #endif    // APSTUDIO_INVOKED
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// AFX_DIALOG_LAYOUT
-//
-
-IDD_CLIX AFX_DIALOG_LAYOUT
-BEGIN
-    0
-END
 
 #endif    // Czech (Czech Republic) resources
 /////////////////////////////////////////////////////////////////////////////

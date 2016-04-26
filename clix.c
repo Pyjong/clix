@@ -1,39 +1,7 @@
 #include <windows.h>
 #include "clix.h"
-
-
-typedef struct _ClixCtx
-{
-    HANDLE hClickerThread;
-    HANDLE hStartStopClickingEvent;
-
-    BOOLEAN bTargetBeingSet;
-    BOOLEAN bClicking;
-    BOOLEAN bExit;
-    
-    struct
-    {
-        UINT   ThreadId;
-        HWND   hWnd;
-        POINT  p;
-        POINT  ClientP;
-    }Target;
-
-    struct
-    {
-        HWND  hWnd;
-        HWND  hButtonStart;
-        HWND  hButtonSelect;
-        HWND  hText;
-        HMENU sysMenu;
-    }ClixDlg;
-    
-    struct
-    {
-        UINT SendLMBDOWN;
-        UINT SendLMBUP;
-    }Messages;
-}ClixCtx;
+#include "settings.h"
+#include "resources.h"
 
 ////////////////////////////////////
 // .data
@@ -46,10 +14,16 @@ static ClixCtx LeMegaCtx =
     FALSE,
     FALSE,
     FALSE,
+        
+    {
+        0,    // time increment
+        0     // timer
+    },
     
     {
         0,
         INVALID_HANDLE_VALUE,
+        {0,0},
         {0,0}
     },
     
@@ -57,21 +31,36 @@ static ClixCtx LeMegaCtx =
         INVALID_HANDLE_VALUE,
         INVALID_HANDLE_VALUE,
         INVALID_HANDLE_VALUE,
-        INVALID_HANDLE_VALUE
+        INVALID_HANDLE_VALUE,
+        INVALID_HANDLE_VALUE,
+        0
     },
     
     {
-        MF_BYCOMMAND | MF_CHECKED,
-        MF_BYCOMMAND | MF_UNCHECKED
+        TRUE,
+        FALSE,
+        20
+    },
+    
+    {
+        {0, 0, 0, 0, (HK_CALLBACK)StartStop},
+        {1, 0, 0, 0, (HK_CALLBACK)SetTargetClickPt}
     }
+    
 };
 
-
 UCHAR PrintBuf[300];
-
+static UINT clicks = 0;
+static UINT extra_clicks = 0;
 
 ////////////////////////////////////
 // .text
+
+// periodic clicks reset
+VOID ResetClicks()
+{
+    clicks = 0;
+}
 
 //
 // Routine for setting current click point
@@ -92,6 +81,26 @@ SetTargetClickPt()
     return ERROR_SUCCESS;
 }
 
+VOID
+StartStop()
+{
+    LeMegaCtx.bClicking ^= TRUE;
+    
+    clicks = 0;
+                
+    if (LeMegaCtx.bClicking)
+    {
+        LeMegaCtx.System.Timer = SetTimer(LeMegaCtx.ClixDlg.hWnd, LeMegaCtx.System.Timer, 1000, (TIMERPROC)ResetClicks);
+        SetEvent(LeMegaCtx.hStartStopClickingEvent);
+    }
+    else
+    {
+        KillTimer(LeMegaCtx.ClixDlg.hWnd, LeMegaCtx.System.Timer);
+        LeMegaCtx.System.Timer = 0;
+        ResetEvent(LeMegaCtx.hStartStopClickingEvent);
+    }
+}
+
 //
 // Actual clicker routine
 //
@@ -100,28 +109,84 @@ WINAPI
 Clicker(PVOID Param)
 {
     POINT* p = &LeMegaCtx.Target.ClientP;
+    UINT curr_extraclicks = 0;
     
     while (!LeMegaCtx.bExit)
     {
-        WaitForSingleObject(LeMegaCtx.hStartStopClickingEvent, INFINITE);
-        if (LeMegaCtx.Messages.SendLMBDOWN)
-            PostMessage(LeMegaCtx.Target.hWnd, WM_LBUTTONDOWN, MK_LBUTTON, p->x | (p->y << 16));
+        if (clicks < LeMegaCtx.Messages.MaxClicksPS)
+        {
+            WaitForSingleObject(LeMegaCtx.hStartStopClickingEvent, INFINITE);
+            if (LeMegaCtx.Messages.SendLMBDOWN)
+                PostMessage(LeMegaCtx.Target.hWnd, WM_LBUTTONDOWN, MK_LBUTTON, p->x | (p->y << 16));
+            
+            if (LeMegaCtx.Messages.SendLMBUP)
+                PostMessage(LeMegaCtx.Target.hWnd, WM_LBUTTONUP, MK_LBUTTON, p->x | (p->y << 16));
         
-        if (LeMegaCtx.Messages.SendLMBUP)
-            PostMessage(LeMegaCtx.Target.hWnd, WM_LBUTTONUP, MK_LBUTTON, p->x | (p->y << 16));
+             clicks++;
+        }
         
+        if (curr_extraclicks++ < extra_clicks)
+            continue;
+        
+        curr_extraclicks = 0;
         Sleep(1);
     }
     
     return ERROR_SUCCESS;
 }
 
+VOID
+Clix_ApplySettings(PCLIX_SETTINGS settings)
+{
+    LeMegaCtx.Messages.MaxClicksPS = settings->MaxClicksPS;
+    extra_clicks = 100 / (LeMegaCtx.System.TimeIncrement / 10000 );
+    extra_clicks = settings->MaxClicksPS / extra_clicks;
+    
+    LeMegaCtx.Messages.SendLMBDOWN = settings->SendLMBDOWN;
+    LeMegaCtx.Messages.SendLMBUP   = settings->SendLMBUP;
+
+    /* Set hotkeys */
+    if (LeMegaCtx.Hotkeys[0].wParam && !settings->hotkeys[0].wParam)
+    {
+        UnregisterHotKey(LeMegaCtx.ClixDlg.hWnd, 0);
+    }
+
+    if (LeMegaCtx.Hotkeys[1].wParam && !settings->hotkeys[1].wParam)
+    {
+        UnregisterHotKey(LeMegaCtx.ClixDlg.hWnd, 1);
+    }
+    
+    if (settings->hotkeys[0].wParam)
+    {
+        RegisterHotKey(LeMegaCtx.ClixDlg.hWnd, 0, 0, settings->hotkeys[0].wParam);
+    }
+    
+    if (settings->hotkeys[1].wParam)
+    {
+        RegisterHotKey(LeMegaCtx.ClixDlg.hWnd, 1, 0, settings->hotkeys[1].wParam);
+    }
+    
+    LeMegaCtx.Hotkeys[0].lParam = settings->hotkeys[0].lParam;
+    LeMegaCtx.Hotkeys[0].wParam = settings->hotkeys[0].wParam;
+    LeMegaCtx.Hotkeys[1].lParam = settings->hotkeys[1].lParam;
+    LeMegaCtx.Hotkeys[1].wParam = settings->hotkeys[1].wParam;
+    
+}
+
 INT_PTR
 WINAPI
 ClixDlgProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
-    UCHAR ClassName[MAX_PATH];
-    ULONG size;
+    UCHAR   ClassName[MAX_PATH];
+    ULONG   size;
+    INT_PTR Ret;
+
+    CLIX_SETTINGS Settings;
+    PCLIX_HOTKEY  hotkey = NULL;
+    HWND          hNext;
+    UINT          uFlags;
+    
+    UCHAR err[100];
     
     switch (Msg)
     {
@@ -138,12 +203,7 @@ ClixDlgProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
                 break;
                 
                 case IDC_START_STOP_CLICKING:
-                    LeMegaCtx.bClicking ^= TRUE;
-                
-                    if (LeMegaCtx.bClicking)
-                        SetEvent(LeMegaCtx.hStartStopClickingEvent);
-                    else
-                        ResetEvent(LeMegaCtx.hStartStopClickingEvent);
+                    StartStop();
                     
                     return TRUE;
                 break;
@@ -156,17 +216,53 @@ ClixDlgProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
         case WM_SYSCOMMAND:
             switch (LOWORD(wParam))
             {
-                case IDC_LMB_DOWN:
-                    LeMegaCtx.Messages.SendLMBDOWN ^= MF_CHECKED;
-                
-                    CheckMenuItem(LeMegaCtx.ClixDlg.sysMenu, IDC_LMB_DOWN, LeMegaCtx.Messages.SendLMBDOWN);
+                case IDC_BRING_UP_SETTINGS:
+                    ZeroMemory(&Settings, sizeof(Settings));
+
+                    Settings.hotkeys[0].lParam = LeMegaCtx.Hotkeys[0].lParam;
+                    Settings.hotkeys[0].wParam = LeMegaCtx.Hotkeys[0].wParam;
+                    Settings.hotkeys[1].lParam = LeMegaCtx.Hotkeys[1].lParam;
+                    Settings.hotkeys[1].wParam = LeMegaCtx.Hotkeys[1].wParam;
+                    
+                    Settings.MaxClicksPS = LeMegaCtx.Messages.MaxClicksPS;
+                    Settings.SendLMBDOWN = LeMegaCtx.Messages.SendLMBDOWN;
+                    Settings.SendLMBUP   = LeMegaCtx.Messages.SendLMBUP;
+
+                    Ret = DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CLIX_SETTINGS), hWnd, SettingsDlgProc, (LPARAM)&Settings);
+
+                    if (Ret == -1)
+                    {
+                        sprintf(err, "Error: 0x%x", GetLastError());
+                        MessageBox(0,err,"Error",0);
+                    }
+                    
+                    if (Ret == IDOK)
+                        Clix_ApplySettings(&Settings);
+                    
                     return TRUE;
                 break;
-                
-                case IDC_LMB_UP:
-                    LeMegaCtx.Messages.SendLMBUP ^= MF_CHECKED;
+
+                case IDC_STAY_ON_TOP:
+                    LeMegaCtx.ClixDlg.StayOnTop ^= MF_CHECKED;
                     
-                    CheckMenuItem(LeMegaCtx.ClixDlg.sysMenu, IDC_LMB_UP, LeMegaCtx.Messages.SendLMBUP);
+                    CheckMenuItem(LeMegaCtx.ClixDlg.sysMenu, IDC_STAY_ON_TOP, LeMegaCtx.ClixDlg.StayOnTop);
+
+                    uFlags = SWP_NOMOVE | SWP_SHOWWINDOW | SWP_NOSIZE;
+
+                    if (LeMegaCtx.ClixDlg.StayOnTop & MF_CHECKED)
+                    {
+                        hNext   = HWND_TOPMOST;
+                    }
+                    else
+                    {
+                        hNext  = HWND_NOTOPMOST;
+                    }
+
+                    SetWindowPos(LeMegaCtx.ClixDlg.hWnd, 
+                                 hNext, 
+                                 0,0,0,0,
+                                 uFlags);
+
                     return TRUE;
                 break;
             }
@@ -197,6 +293,13 @@ ClixDlgProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
             
             return TRUE;
         break;
+
+	case WM_HOTKEY:
+            hotkey = &LeMegaCtx.Hotkeys[wParam];
+
+            if (hotkey->wParam)
+                hotkey->callback(NULL);
+	return TRUE;
         
         case WM_CLOSE:
             DestroyWindow(hWnd);
@@ -217,7 +320,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, 
     MSG Msg;
     HMENU sysMenu, clixMenu;
     HICON clixIcon;
+    HWND  hParent;
+    UCHAR WndClass[32];
+    ULONG Dummy0, Dummy1;
     
+    GetSystemTimeAdjustment(&LeMegaCtx.System.TimeIncrement, &Dummy0, &Dummy1);
     
     // slight init
     LeMegaCtx.ClixDlg.hWnd = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_CLIX), 0, ClixDlgProc);
@@ -230,9 +337,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, 
     
     // set menu
     sysMenu  = GetSystemMenu(LeMegaCtx.ClixDlg.hWnd, FALSE);
-    //DeleteMenu(sysMenu, 0, MF_BYPOSITION);
-    clixMenu = LoadMenu(hInstance, MAKEINTRESOURCE(IDM_MENU));
-    InsertMenu(sysMenu, 0, MF_POPUP, (UINT_PTR)clixMenu, "Clix msgs");
+    AppendMenu(sysMenu, 0, IDC_BRING_UP_SETTINGS, "Settings");
+    AppendMenu(sysMenu, 0, IDC_STAY_ON_TOP, "Always on top");
     LeMegaCtx.ClixDlg.sysMenu = sysMenu;
     
     LeMegaCtx.hStartStopClickingEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -246,14 +352,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, 
     ShowWindow(LeMegaCtx.ClixDlg.hWnd, SW_SHOW);
     UpdateWindow(LeMegaCtx.ClixDlg.hWnd);
     
-    // our shitty dialog message pump
     while (GetMessage(&Msg, 0, 0, 0) != 0)
     {
-        if (!IsDialogMessage(LeMegaCtx.ClixDlg.hWnd, &Msg))
-        {
-            TranslateMessage(&Msg);
-            DispatchMessage(&Msg);
-        }
+        //if (!IsDialogMessage(LeMegaCtx.ClixDlg.hWnd, &Msg))
+        //{
+        TranslateMessage(&Msg);
+        DispatchMessage(&Msg);
+        //}
     }
     
     LeMegaCtx.bExit = TRUE;
@@ -263,3 +368,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, 
     
     return 0;
 }
+
+//
+// Pre-main initialization
+//
+int clix_init()
+{
+    RegisterKeyButtonClass();
+    return 0;
+}
+
+#pragma section(".CRT$XIU",long,read)
+__declspec(allocate(".CRT$XIU"))
+int (*global_initializer)() = clix_init;
+
