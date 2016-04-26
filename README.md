@@ -7,7 +7,7 @@ I added Settings, which you can find in the menu when you right click the window
 
 The actual amount of clicks is calculated based on clock tick duration on your system (client versions of Windows have default of 15ms). The clock tick duration is value calculated with respect to your processor frequency. Clix takes the upper limit from settings and divides it by tick duration, "adds 1" and that is the final amount of clicks per being scheduled once. If nothing more important occurs in the system, added all up this makes your limit amount of clicks in a second. Therefore it won't take away all your cpu time, **but** the games (especially in browser) may raise their hunger for cpu time because of all the message handling.
 
-There is no way to guarantee any minimum being met from user space. Trust MS kernel team, they're pretty good.
+There is no way to guarantee any minimum amount of clicks done from user space, but trust MS kernel team, they're pretty good.
 
 Some of the games I tried out:
 
